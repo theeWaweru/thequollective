@@ -135,12 +135,16 @@ exports.handler = async function (event, context) {
                                         
                                         <!-- Phone -->
                                         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 15px;">
-                                        <tr>
+  <tr>
     <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999; padding-bottom: 5px; vertical-align: top;">Phone</td>
     <td width="70%" style="font-size: 14px; padding-bottom: 10px;">
       ${
         phone
-          ? `<a href="tel:${phone}" style="color: #ffffff; text-decoration: underline;">${phone}</a>`
+          ? // Check if phone already has a + sign (country code)
+            phone.startsWith("+")
+            ? `<a href="tel:${phone}" style="color: #ffffff; text-decoration: underline;">${phone}</a>`
+            : // If no + sign, assume it needs the default +254 code
+              `<a href="tel:+254${phone}" style="color: #ffffff; text-decoration: underline;">+254 ${phone}</a>`
           : "Not provided"
       }
     </td>
@@ -320,7 +324,11 @@ exports.handler = async function (event, context) {
   <td width="70%" style="padding: 12px 15px; color: #333333; border-bottom: 1px solid #eeeeee;">
     ${
       phone
-        ? `<a href="tel:${phone}" style="color: #007bff; text-decoration: none;">${phone}</a>`
+        ? // Check if phone already has a + sign (country code)
+          phone.startsWith("+")
+          ? `<a href="tel:${phone}" style="color: #007bff; text-decoration: none;">${phone}</a>`
+          : // If no + sign, assume it needs the default +254 code
+            `<a href="tel:+254${phone}" style="color: #007bff; text-decoration: none;">+254 ${phone}</a>`
         : "Not provided"
     }
   </td>
