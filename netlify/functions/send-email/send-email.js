@@ -4,7 +4,7 @@ const axios = require("axios");
 exports.handler = async function (event, context) {
   // Set CORS headers to allow your Webflow site
   const headers = {
-    "Access-Control-Allow-Origin": "http://quollective.webflow.io", // Replace with your Webflow domain https://thequollective.africa
+    "Access-Control-Allow-Origin": "https://quollective.webflow.io", // Replace with your Webflow domain https://thequollective.africa
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
   };
