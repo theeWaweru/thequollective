@@ -6,8 +6,18 @@ exports.handler = async function (event, context) {
   const currentYear = new Date().getFullYear();
 
   // Set CORS headers to allow your Webflow site
+  // Set CORS headers dynamically based on the origin
+  const origin = event.headers.origin || "";
+  const allowedOrigins = [
+    "https://quollective.webflow.io",
+    "https://thequollective.africa",
+    "https://www.thequollective.africa",
+  ];
+
   const headers = {
-    "Access-Control-Allow-Origin": "https://quollective.webflow.io", // Use HTTPS
+    "Access-Control-Allow-Origin": allowedOrigins.includes(origin)
+      ? origin
+      : allowedOrigins[0],
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
   };
@@ -389,6 +399,10 @@ exports.handler = async function (event, context) {
         email: "the.emuron@thequollective.africa", // Business email as sender
       },
       to: [
+        {
+          email: "the.emuron@thequollective.africa", 
+          name: "The Quollective",
+        },
         {
           email: "davidngari47@gmail.com", // Your email (admin)
           name: "David Ngari",
