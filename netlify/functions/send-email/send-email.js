@@ -33,22 +33,35 @@ exports.handler = async function (event, context) {
   try {
     // Parse the incoming JSON
     const data = JSON.parse(event.body);
+    console.log("Received form submission:", data);
 
-    // Extract form data - get from form submission if available
-    let name = data.name || "";
-    let email = data.email || "";
-    let phone = data.phone || "";
+    // Extract form data - properly handling nested data structures
+    let name = data.sender?.name || data.name || "";
+    let email = data.replyTo?.email || data.email || "";
+    let phone = data.fullPhone || data.phone || "";
     let organization = data.organization || "";
     let service = data.service || "";
     let message = data.message || "";
 
-    // If data is nested in the sender/to objects (from the original form structure)
-    if (!name && data.sender && data.sender.name) {
-      name = data.sender.name;
-    }
+    console.log("Extracted form data:", {
+      name,
+      email,
+      phone,
+      organization,
+      service,
+    });
 
-    if (!email && data.to && data.to[0] && data.to[0].email) {
-      email = data.to[0].email;
+    // Validate the submitter's email - needed for sending the confirmation
+    if (!email || !email.includes("@")) {
+      console.log("Invalid or missing email address:", email);
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          success: false,
+          message: "Valid email address is required",
+        }),
+      };
     }
 
     // Create email-client friendly HTML email template with dynamic data
@@ -116,9 +129,7 @@ exports.handler = async function (event, context) {
                                         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 15px;">
                                             <tr>
                                                 <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999; padding-bottom: 5px; vertical-align: top;">Email</td>
-                                                <td width="70%" style="font-size: 14px; padding-bottom: 10px;">${
-                                                  email || "Not provided"
-                                                }</td>
+                                                <td width="70%" style="font-size: 14px; padding-bottom: 10px;">${email}</td>
                                             </tr>
                                         </table>
                                         
@@ -298,9 +309,7 @@ exports.handler = async function (event, context) {
                                 </tr>
                                 <tr>
                                     <td width="30%" style="padding: 12px 15px; font-weight: bold; color: #333333; border-bottom: 1px solid #eeeeee;">Email</td>
-                                    <td width="70%" style="padding: 12px 15px; color: #333333; border-bottom: 1px solid #eeeeee;"><a href="mailto:${email}" style="color: #007bff; text-decoration: none;">${
-      email || "Not provided"
-    }</a></td>
+                                    <td width="70%" style="padding: 12px 15px; color: #333333; border-bottom: 1px solid #eeeeee;"><a href="mailto:${email}" style="color: #007bff; text-decoration: none;">${email}</a></td>
                                 </tr>
                                 <tr style="background-color: #f9f9f9;">
                                     <td width="30%" style="padding: 12px 15px; font-weight: bold; color: #333333; border-bottom: 1px solid #eeeeee;">Phone</td>
@@ -361,18 +370,16 @@ exports.handler = async function (event, context) {
     const adminEmailData = {
       sender: {
         name: "Quollective Website",
-        email: data.sender
-          ? data.sender.email
-          : "david.ngari@quollective.africa", // Fallback to company email
+        email: "the.emuron@thequollective.africa", // Business email as sender
       },
       to: [
         {
-          email: "davidngari47@gmail.com", // Fixed test recipient
+          email: "davidngari47@gmail.com", // Your email (admin)
           name: "David Ngari",
         },
       ],
       replyTo: {
-        email: email || "davidngari47@gmail.com", // Use the form submitter's email as reply-to
+        email: email, // Use the submitter's email as reply-to
       },
       subject: `New Contact Form Submission: ${service || "Website Inquiry"}`,
       htmlContent: adminEmailTemplate,
@@ -382,16 +389,16 @@ exports.handler = async function (event, context) {
     const userConfirmationEmailData = {
       sender: {
         name: "THE QUOLLECTIVE",
-        email: "the.emuron@thequollective.africa", // Fixed sender email
+        email: "the.emuron@thequollective.africa", // Business email
       },
       to: [
         {
-          email: email || "davidngari47@gmail.com", // Send to the person who submitted the form
+          email: email, // Send to the person who submitted the form
           name: name || "Website Visitor",
         },
       ],
       replyTo: {
-        email: "the.emuron@thequollective.africa", // Fixed reply-to
+        email: "the.emuron@thequollective.africa", // Business reply-to
       },
       subject: `YOUR VISION IS NOW IN OUR HANDS | THE QUOLLECTIVE`,
       htmlContent: emailClientFriendlyTemplate,
@@ -401,6 +408,7 @@ exports.handler = async function (event, context) {
     const apiUrl = "https://api.brevo.com/v3/smtp/email";
 
     // Send email to admin
+    console.log("Sending admin notification email...");
     const adminEmailResponse = await axios.post(apiUrl, adminEmailData, {
       headers: {
         accept: "application/json",
@@ -408,8 +416,10 @@ exports.handler = async function (event, context) {
         "content-type": "application/json",
       },
     });
+    console.log("Admin email sent successfully:", adminEmailResponse.data);
 
     // Send confirmation email to user
+    console.log("Sending confirmation email to user:", email);
     const userEmailResponse = await axios.post(
       apiUrl,
       userConfirmationEmailData,
@@ -420,6 +430,10 @@ exports.handler = async function (event, context) {
           "content-type": "application/json",
         },
       }
+    );
+    console.log(
+      "User confirmation email sent successfully:",
+      userEmailResponse.data
     );
 
     // Return success response
@@ -436,7 +450,7 @@ exports.handler = async function (event, context) {
   } catch (error) {
     console.error("Error sending email:", error);
 
-    // Return error response
+    // Return error response with more details
     return {
       statusCode: 500,
       headers,
@@ -444,6 +458,7 @@ exports.handler = async function (event, context) {
         success: false,
         message: "Failed to send email",
         error: error.message,
+        stack: error.stack,
       }),
     };
   }
