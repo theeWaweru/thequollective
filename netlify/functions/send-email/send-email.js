@@ -135,13 +135,17 @@ exports.handler = async function (event, context) {
                                         
                                         <!-- Phone -->
                                         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 15px;">
-                                            <tr>
-                                                <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999; padding-bottom: 5px; vertical-align: top;">Phone</td>
-                                                <td width="70%" style="font-size: 14px; padding-bottom: 10px;">${
-                                                  phone || "Not provided"
-                                                }</td>
-                                            </tr>
-                                        </table>
+                                        <tr>
+    <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999; padding-bottom: 5px; vertical-align: top;">Phone</td>
+    <td width="70%" style="font-size: 14px; padding-bottom: 10px;">
+      ${
+        phone
+          ? `<a href="tel:${phone}" style="color: #ffffff; text-decoration: underline;">${phone}</a>`
+          : "Not provided"
+      }
+    </td>
+  </tr>
+</table>
                                         
                                         <!-- Organization -->
                                         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 15px;">
@@ -312,11 +316,15 @@ exports.handler = async function (event, context) {
                                     <td width="70%" style="padding: 12px 15px; color: #333333; border-bottom: 1px solid #eeeeee;"><a href="mailto:${email}" style="color: #007bff; text-decoration: none;">${email}</a></td>
                                 </tr>
                                 <tr style="background-color: #f9f9f9;">
-                                    <td width="30%" style="padding: 12px 15px; font-weight: bold; color: #333333; border-bottom: 1px solid #eeeeee;">Phone</td>
-                                    <td width="70%" style="padding: 12px 15px; color: #333333; border-bottom: 1px solid #eeeeee;">${
-                                      phone || "Not provided"
-                                    }</td>
-                                </tr>
+  <td width="30%" style="padding: 12px 15px; font-weight: bold; color: #333333; border-bottom: 1px solid #eeeeee;">Phone</td>
+  <td width="70%" style="padding: 12px 15px; color: #333333; border-bottom: 1px solid #eeeeee;">
+    ${
+      phone
+        ? `<a href="tel:${phone}" style="color: #007bff; text-decoration: none;">${phone}</a>`
+        : "Not provided"
+    }
+  </td>
+</tr>
                                 <tr>
                                     <td width="30%" style="padding: 12px 15px; font-weight: bold; color: #333333; border-bottom: 1px solid #eeeeee;">Organization</td>
                                     <td width="70%" style="padding: 12px 15px; color: #333333; border-bottom: 1px solid #eeeeee;">${
