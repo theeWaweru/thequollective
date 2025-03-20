@@ -2,6 +2,9 @@
 const axios = require("axios");
 
 exports.handler = async function (event, context) {
+  // Get current year for copyright
+  const currentYear = new Date().getFullYear();
+
   // Set CORS headers to allow your Webflow site
   const headers = {
     "Access-Control-Allow-Origin": "https://quollective.webflow.io", // Use HTTPS
@@ -70,7 +73,7 @@ exports.handler = async function (event, context) {
                             <p style="font-size: 14px; letter-spacing: 3px; text-transform: uppercase; color: #cccccc; margin: 5px 0 20px 0;">Your vision is now in our hands</p>
                             <table width="80%" border="0" cellpadding="0" cellspacing="0">
                                 <tr>
-                                    <td align="center" height="1" style="background: linear-gradient(to right, #000000, #ffffff, #000000);"></td>
+                                    <td align="center" height="1" style="background-color: #333333;"></td>
                                 </tr>
                             </table>
                         </td>
@@ -190,13 +193,13 @@ exports.handler = async function (event, context) {
                         </td>
                     </tr>
                     
-                    <!-- Next Steps -->
+                    <!-- Next Steps (Single step as requested) -->
                     <tr>
                         <td style="padding: 20px; background-color: #111111;">
                             <h3 align="center" style="font-family: Arial, sans-serif; font-size: 22px; font-weight: bold; margin: 0 0 20px 0;">WHAT HAPPENS NEXT</h3>
                             
-                            <!-- Step 1 -->
-                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px;">
+                            <!-- Initial Contact -->
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                 <tr valign="top">
                                     <td width="20" height="100%" style="padding-right: 15px;">
                                         <div style="width: 10px; height: 10px; background-color: #ffffff; border-radius: 50%; margin-top: 5px;"></div>
@@ -204,45 +207,6 @@ exports.handler = async function (event, context) {
                                     <td>
                                         <p style="font-weight: bold; margin: 0 0 5px 0; font-size: 16px;">Initial Contact</p>
                                         <p style="margin: 0; color: #cccccc; font-size: 14px;">One of our team members will reach out to you within 24 hours to acknowledge your inquiry.</p>
-                                    </td>
-                                </tr>
-                            </table>
-                            
-                            <!-- Step 2 -->
-                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px;">
-                                <tr valign="top">
-                                    <td width="20" height="100%" style="padding-right: 15px;">
-                                        <div style="width: 10px; height: 10px; background-color: #ffffff; border-radius: 50%; margin-top: 5px;"></div>
-                                    </td>
-                                    <td>
-                                        <p style="font-weight: bold; margin: 0 0 5px 0; font-size: 16px;">Discovery Call</p>
-                                        <p style="margin: 0; color: #cccccc; font-size: 14px;">We'll schedule a conversation to deeply understand your vision, goals, and timeline.</p>
-                                    </td>
-                                </tr>
-                            </table>
-                            
-                            <!-- Step 3 -->
-                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px;">
-                                <tr valign="top">
-                                    <td width="20" height="100%" style="padding-right: 15px;">
-                                        <div style="width: 10px; height: 10px; background-color: #ffffff; border-radius: 50%; margin-top: 5px;"></div>
-                                    </td>
-                                    <td>
-                                        <p style="font-weight: bold; margin: 0 0 5px 0; font-size: 16px;">Strategic Proposal</p>
-                                        <p style="margin: 0; color: #cccccc; font-size: 14px;">Based on our conversation, we'll craft a tailored proposal that aligns with your objectives.</p>
-                                    </td>
-                                </tr>
-                            </table>
-                            
-                            <!-- Step 4 -->
-                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                                <tr valign="top">
-                                    <td width="20" height="100%" style="padding-right: 15px;">
-                                        <div style="width: 10px; height: 10px; background-color: #ffffff; border-radius: 50%; margin-top: 5px;"></div>
-                                    </td>
-                                    <td>
-                                        <p style="font-weight: bold; margin: 0 0 5px 0; font-size: 16px;">Creative Journey Begins</p>
-                                        <p style="margin: 0; color: #cccccc; font-size: 14px;">Upon approval, we'll assemble the perfect team to bring your vision to life.</p>
                                     </td>
                                 </tr>
                             </table>
@@ -286,8 +250,104 @@ exports.handler = async function (event, context) {
                     <!-- Footer -->
                     <tr>
                         <td align="center" style="padding: 20px; border-top: 1px solid #333333; font-size: 12px; color: #999999;">
-                            <p style="margin: 0 0 10px 0;">&copy;2025 THE QUOLLECTIVE. ALL RIGHTS RESERVED.</p>
-                            <p style="margin: 0;">This message was sent in response to your inquiry. Your information is kept confidential.</p>
+                            <p style="margin: 0 0 10px 0;">&copy; ${currentYear} THE QUOLLECTIVE. ALL RIGHTS RESERVED.</p>
+                            <p style="margin: 0;">This message was sent in response to your inquiry. Your information is kept confidential according to our privacy policy.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>`;
+
+    // Create an improved HTML admin email template
+    const adminEmailTemplate = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>New Contact Form Submission</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: Arial, sans-serif;">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+            <td>
+                <!-- Container Table -->
+                <table align="center" border="0" cellpadding="0" cellspacing="0" width="600" style="border-collapse: collapse; background-color: #ffffff;">
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="padding: 30px 20px; background-color: #000000;">
+                            <img src="https://cdn.prod.website-files.com/666173435a4bdfce5ef95f6f/67dc5fea1adb79c551882cdc_quo_logo_white.png" alt="THE QUOLLECTIVE" width="150" style="display: block;" />
+                        </td>
+                    </tr>
+                    
+                    <!-- Main Content -->
+                    <tr>
+                        <td style="padding: 30px 20px;">
+                            <h1 style="font-family: Arial, sans-serif; font-size: 24px; font-weight: bold; margin: 0 0 20px 0; color: #333333;">New Contact Form Submission</h1>
+                            <p style="font-size: 16px; line-height: 1.5; margin: 0 0 20px 0; color: #666666;">You have received a new inquiry from your website contact form. Here are the details:</p>
+                            
+                            <!-- Submission Details -->
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 20px 0; border: 1px solid #eeeeee; border-radius: 5px; overflow: hidden;">
+                                <tr style="background-color: #f9f9f9;">
+                                    <td width="30%" style="padding: 12px 15px; font-weight: bold; color: #333333; border-bottom: 1px solid #eeeeee;">Name</td>
+                                    <td width="70%" style="padding: 12px 15px; color: #333333; border-bottom: 1px solid #eeeeee;">${
+                                      name || "Not provided"
+                                    }</td>
+                                </tr>
+                                <tr>
+                                    <td width="30%" style="padding: 12px 15px; font-weight: bold; color: #333333; border-bottom: 1px solid #eeeeee;">Email</td>
+                                    <td width="70%" style="padding: 12px 15px; color: #333333; border-bottom: 1px solid #eeeeee;"><a href="mailto:${email}" style="color: #007bff; text-decoration: none;">${
+      email || "Not provided"
+    }</a></td>
+                                </tr>
+                                <tr style="background-color: #f9f9f9;">
+                                    <td width="30%" style="padding: 12px 15px; font-weight: bold; color: #333333; border-bottom: 1px solid #eeeeee;">Phone</td>
+                                    <td width="70%" style="padding: 12px 15px; color: #333333; border-bottom: 1px solid #eeeeee;">${
+                                      phone || "Not provided"
+                                    }</td>
+                                </tr>
+                                <tr>
+                                    <td width="30%" style="padding: 12px 15px; font-weight: bold; color: #333333; border-bottom: 1px solid #eeeeee;">Organization</td>
+                                    <td width="70%" style="padding: 12px 15px; color: #333333; border-bottom: 1px solid #eeeeee;">${
+                                      organization || "Not provided"
+                                    }</td>
+                                </tr>
+                                <tr style="background-color: #f9f9f9;">
+                                    <td width="30%" style="padding: 12px 15px; font-weight: bold; color: #333333; border-bottom: 1px solid #eeeeee;">Service</td>
+                                    <td width="70%" style="padding: 12px 15px; color: #333333; border-bottom: 1px solid #eeeeee;">${
+                                      service || "Not specified"
+                                    }</td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Message -->
+                            <h2 style="font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; margin: 30px 0 15px 0; color: #333333;">Message:</h2>
+                            <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #000000; margin-bottom: 20px; color: #666666;">
+                                ${
+                                  message
+                                    ? message.replace(/\n/g, "<br>")
+                                    : "No message provided"
+                                }
+                            </div>
+                            
+                            <!-- CTA -->
+                            <p style="font-size: 16px; margin: 30px 0 20px 0; color: #666666;">Please respond to this inquiry within 24 hours.</p>
+                            <table border="0" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td style="background-color: #000000; border-radius: 4px;">
+                                        <a href="mailto:${email}" style="display: inline-block; padding: 12px 25px; font-family: Arial, sans-serif; font-size: 16px; color: #ffffff; text-decoration: none;">Reply to Inquiry</a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td align="center" style="padding: 20px; background-color: #f5f5f5; font-size: 14px; color: #999999; border-top: 1px solid #eeeeee;">
+                            <p style="margin: 0;">&copy; ${currentYear} THE QUOLLECTIVE. ALL RIGHTS RESERVED.</p>
                         </td>
                     </tr>
                 </table>
@@ -300,53 +360,38 @@ exports.handler = async function (event, context) {
     // Create email data for admin notification
     const adminEmailData = {
       sender: {
-        name: name || "Website Visitor",
-        email: data.sender ? data.sender.email : "davidngari47@gmail.com", // Fallback to test email
+        name: "Quollective Website",
+        email: data.sender
+          ? data.sender.email
+          : "david.ngari@quollective.africa", // Fallback to company email
       },
-      to: data.to || [
+      to: [
         {
-          email: "davidngari47@gmail.com", // Default test recipient
+          email: "davidngari47@gmail.com", // Fixed test recipient
           name: "David Ngari",
         },
       ],
       replyTo: {
-        email:
-          email ||
-          (data.replyTo ? data.replyTo.email : "davidngari47@gmail.com"),
+        email: email || "davidngari47@gmail.com", // Use the form submitter's email as reply-to
       },
       subject: `New Contact Form Submission: ${service || "Website Inquiry"}`,
-      htmlContent: `
-        <h2>New Contact Form Submission</h2>
-        <p><strong>Name:</strong> ${name || "Not provided"}</p>
-        <p><strong>Email:</strong> ${email || "Not provided"}</p>
-        <p><strong>Phone:</strong> ${phone || "Not provided"}</p>
-        <p><strong>Organization:</strong> ${organization || "Not provided"}</p>
-        <p><strong>Service:</strong> ${service || "Not specified"}</p>
-        <p><strong>Message:</strong></p>
-        <p>${
-          message ? message.replace(/\n/g, "<br>") : "No message provided"
-        }</p>
-      `,
+      htmlContent: adminEmailTemplate,
     };
 
     // Create confirmation email for the user
     const userConfirmationEmailData = {
       sender: {
         name: "THE QUOLLECTIVE",
-        email: data.sender ? data.sender.email : "davidngari47@gmail.com",
+        email: "the.emuron@thequollective.africa", // Fixed sender email
       },
       to: [
         {
-          email:
-            email ||
-            (data.to && data.to[0]
-              ? data.to[0].email
-              : "davidngari47@gmail.com"),
+          email: email || "davidngari47@gmail.com", // Send to the person who submitted the form
           name: name || "Website Visitor",
         },
       ],
       replyTo: {
-        email: data.replyTo ? data.replyTo.email : "davidngari47@gmail.com",
+        email: "the.emuron@thequollective.africa", // Fixed reply-to
       },
       subject: `YOUR VISION IS NOW IN OUR HANDS | THE QUOLLECTIVE`,
       htmlContent: emailClientFriendlyTemplate,
