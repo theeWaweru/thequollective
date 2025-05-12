@@ -407,6 +407,14 @@ exports.handler = async function (event, context) {
           email: "davidngari47@gmail.com", // Your email (admin)
           name: "David Ngari",
         },
+        {
+          email: "the.leila@thequollective.africa",
+          name: "Leila Terry",
+        },
+        {
+          email: "the.wanjiku@thequollective.africa",
+          name: "Claire Wanjiku",
+        },
       ],
       replyTo: {
         email: email, // Use the submitter's email as reply-to
@@ -428,7 +436,7 @@ exports.handler = async function (event, context) {
         },
       ],
       replyTo: {
-        email: "the.emuron@thequollective.africa", // Business reply-to
+        email: "the.leila@thequollective.africa", // Business reply-to
       },
       subject: `YOUR VISION IS NOW IN OUR HANDS | THE QUOLLECTIVE`,
       htmlContent: emailClientFriendlyTemplate,
