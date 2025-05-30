@@ -400,12 +400,12 @@ exports.handler = async function (event, context) {
       },
       to: [
         {
-          email: "the.emuron@thequollective.africa", 
+          email: "the.emuron@thequollective.africa", // Your email (admin)
           name: "The Quollective",
         },
         {
-          email: "davidngari47@gmail.com", // Your email (admin)
-          name: "David Ngari",
+          email: "the.kigunda@thequollective.africa",
+          name: "Lilian Kigunda",
         },
       ],
       replyTo: {
@@ -428,7 +428,7 @@ exports.handler = async function (event, context) {
         },
       ],
       replyTo: {
-        email: "the.emuron@thequollective.africa", // Business reply-to
+        email: "the.kigunda@thequollective.africa", // Business reply-to
       },
       subject: `YOUR VISION IS NOW IN OUR HANDS | THE QUOLLECTIVE`,
       htmlContent: emailClientFriendlyTemplate,
