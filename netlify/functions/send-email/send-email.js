@@ -5,7 +5,15 @@ exports.handler = async function (event, context) {
   // Get current year for copyright
   const currentYear = new Date().getFullYear();
 
-  // Set CORS headers to allow your Webflow site
+  // Extract IP address from Netlify headers
+  const clientIP =
+    event.headers["x-nf-client-connection-ip"] ||
+    event.headers["client-ip"] ||
+    event.headers["x-forwarded-for"]?.split(",")[0] ||
+    "Unknown";
+
+  console.log("Request from IP:", clientIP);
+
   // Set CORS headers dynamically based on the origin
   const origin = event.headers.origin || "";
   const allowedOrigins = [
@@ -45,7 +53,57 @@ exports.handler = async function (event, context) {
     const data = JSON.parse(event.body);
     console.log("Received form submission:", data);
 
-    // Extract form data - properly handling nested data structures
+    // NEW: Check IP blocklist
+    const isBlocked = await checkIPBlocklist(clientIP);
+    if (isBlocked) {
+      console.log(`Blocked IP attempted submission: ${clientIP}`);
+
+      // Log the blocked attempt
+      await logIPSubmission(clientIP, data, "BLOCKED");
+
+      // Return fake success to not tip off spammers
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          success: true,
+          message: "Email sent successfully",
+        }),
+      };
+    }
+
+    // NEW: Verify reCAPTCHA
+    const recaptchaToken = data.recaptchaToken;
+    if (!recaptchaToken) {
+      console.log("Missing reCAPTCHA token");
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          success: false,
+          message: "reCAPTCHA verification required",
+        }),
+      };
+    }
+
+    const recaptchaVerified = await verifyRecaptcha(recaptchaToken, clientIP);
+    if (!recaptchaVerified) {
+      console.log("reCAPTCHA verification failed for IP:", clientIP);
+
+      // Log failed verification
+      await logIPSubmission(clientIP, data, "RECAPTCHA_FAILED");
+
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          success: false,
+          message: "reCAPTCHA verification failed. Please try again.",
+        }),
+      };
+    }
+
+    // Extract form data
     let name = data.sender?.name || data.name || "";
     let email = data.replyTo?.email || data.email || "";
     let phone = data.fullPhone || data.phone || "";
@@ -61,7 +119,7 @@ exports.handler = async function (event, context) {
       service,
     });
 
-    // Validate the submitter's email - needed for sending the confirmation
+    // Validate the submitter's email
     if (!email || !email.includes("@")) {
       console.log("Invalid or missing email address:", email);
       return {
@@ -73,6 +131,12 @@ exports.handler = async function (event, context) {
         }),
       };
     }
+
+    // NEW: Log legitimate submission
+    await logIPSubmission(clientIP, data, "SUCCESS");
+
+    // Get IP location info (optional - makes admin email more useful)
+    const ipInfo = await getIPInfo(clientIP);
 
     // Create email-client friendly HTML email template with dynamic data
     const emailClientFriendlyTemplate = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -145,21 +209,19 @@ exports.handler = async function (event, context) {
                                         
                                         <!-- Phone -->
                                         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 15px;">
-  <tr>
-    <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999; padding-bottom: 5px; vertical-align: top;">Phone</td>
-    <td width="70%" style="font-size: 14px; padding-bottom: 10px;">
-      ${
-        phone
-          ? // Check if phone already has a + sign (country code)
-            phone.startsWith("+")
-            ? `<a href="tel:${phone}" style="color: #ffffff; text-decoration: underline;">${phone}</a>`
-            : // If no + sign, assume it needs the default +254 code
-              `<a href="tel:+254${phone}" style="color: #ffffff; text-decoration: underline;">+254 ${phone}</a>`
-          : "Not provided"
-      }
-    </td>
-  </tr>
-</table>
+                                            <tr>
+                                                <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999; padding-bottom: 5px; vertical-align: top;">Phone</td>
+                                                <td width="70%" style="font-size: 14px; padding-bottom: 10px;">
+                                                    ${
+                                                      phone
+                                                        ? phone.startsWith("+")
+                                                          ? `<a href="tel:${phone}" style="color: #ffffff; text-decoration: underline;">${phone}</a>`
+                                                          : `<a href="tel:+254${phone}" style="color: #ffffff; text-decoration: underline;">+254 ${phone}</a>`
+                                                        : "Not provided"
+                                                    }
+                                                </td>
+                                            </tr>
+                                        </table>
                                         
                                         <!-- Organization -->
                                         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 15px;">
@@ -222,7 +284,7 @@ exports.handler = async function (event, context) {
                         </td>
                     </tr>
                     
-                    <!-- Next Steps (Single step as requested) -->
+                    <!-- Next Steps -->
                     <tr>
                         <td style="padding: 20px; background-color: #111111;">
                             <h3 align="center" style="font-family: Arial, sans-serif; font-size: 22px; font-weight: bold; margin: 0 0 20px 0;">WHAT HAPPENS NEXT</h3>
@@ -290,7 +352,7 @@ exports.handler = async function (event, context) {
 </body>
 </html>`;
 
-    // Create an improved HTML admin email template
+    // NEW: Create improved admin email template with IP information
     const adminEmailTemplate = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -317,6 +379,37 @@ exports.handler = async function (event, context) {
                             <h1 style="font-family: Arial, sans-serif; font-size: 24px; font-weight: bold; margin: 0 0 20px 0; color: #333333;">New Contact Form Submission</h1>
                             <p style="font-size: 16px; line-height: 1.5; margin: 0 0 20px 0; color: #666666;">You have received a new inquiry from your website contact form. Here are the details:</p>
                             
+                            <!-- NEW: IP Information Section -->
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 20px 0; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 5px; overflow: hidden;">
+                                <tr>
+                                    <td style="padding: 15px;">
+                                        <h3 style="margin: 0 0 10px 0; color: #856404; font-size: 16px;">🔍 Submission Source Information</h3>
+                                        <p style="margin: 0; color: #856404; font-size: 14px;">
+                                            <strong>IP Address:</strong> ${clientIP}<br>
+                                            ${
+                                              ipInfo.country
+                                                ? `<strong>Location:</strong> ${
+                                                    ipInfo.city
+                                                      ? ipInfo.city + ", "
+                                                      : ""
+                                                  }${ipInfo.country}`
+                                                : ""
+                                            }
+                                            ${
+                                              ipInfo.isp
+                                                ? `<br><strong>ISP:</strong> ${ipInfo.isp}`
+                                                : ""
+                                            }
+                                        </p>
+                                        ${
+                                          ipInfo.isVPN || ipInfo.isProxy
+                                            ? `<p style="margin: 10px 0 0 0; color: #d32f2f; font-size: 13px; font-weight: bold;">⚠️ Warning: This submission may be from a VPN/Proxy</p>`
+                                            : ""
+                                        }
+                                    </td>
+                                </tr>
+                            </table>
+                            
                             <!-- Submission Details -->
                             <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 20px 0; border: 1px solid #eeeeee; border-radius: 5px; overflow: hidden;">
                                 <tr style="background-color: #f9f9f9;">
@@ -330,19 +423,17 @@ exports.handler = async function (event, context) {
                                     <td width="70%" style="padding: 12px 15px; color: #333333; border-bottom: 1px solid #eeeeee;"><a href="mailto:${email}" style="color: #007bff; text-decoration: none;">${email}</a></td>
                                 </tr>
                                 <tr style="background-color: #f9f9f9;">
-  <td width="30%" style="padding: 12px 15px; font-weight: bold; color: #333333; border-bottom: 1px solid #eeeeee;">Phone</td>
-  <td width="70%" style="padding: 12px 15px; color: #333333; border-bottom: 1px solid #eeeeee;">
-    ${
-      phone
-        ? // Check if phone already has a + sign (country code)
-          phone.startsWith("+")
-          ? `<a href="tel:${phone}" style="color: #007bff; text-decoration: none;">${phone}</a>`
-          : // If no + sign, assume it needs the default +254 code
-            `<a href="tel:+254${phone}" style="color: #007bff; text-decoration: none;">+254 ${phone}</a>`
-        : "Not provided"
-    }
-  </td>
-</tr>
+                                    <td width="30%" style="padding: 12px 15px; font-weight: bold; color: #333333; border-bottom: 1px solid #eeeeee;">Phone</td>
+                                    <td width="70%" style="padding: 12px 15px; color: #333333; border-bottom: 1px solid #eeeeee;">
+                                        ${
+                                          phone
+                                            ? phone.startsWith("+")
+                                              ? `<a href="tel:${phone}" style="color: #007bff; text-decoration: none;">${phone}</a>`
+                                              : `<a href="tel:+254${phone}" style="color: #007bff; text-decoration: none;">+254 ${phone}</a>`
+                                            : "Not provided"
+                                        }
+                                    </td>
+                                </tr>
                                 <tr>
                                     <td width="30%" style="padding: 12px 15px; font-weight: bold; color: #333333; border-bottom: 1px solid #eeeeee;">Organization</td>
                                     <td width="70%" style="padding: 12px 15px; color: #333333; border-bottom: 1px solid #eeeeee;">${
@@ -367,15 +458,20 @@ exports.handler = async function (event, context) {
                                 }
                             </div>
                             
-                            <!-- CTA -->
-                            <p style="font-size: 16px; margin: 30px 0 20px 0; color: #666666;">Please respond to this inquiry within 24 hours.</p>
+                            <!-- NEW: Quick Actions -->
+                            <h3 style="font-family: Arial, sans-serif; font-size: 16px; font-weight: bold; margin: 30px 0 15px 0; color: #333333;">Quick Actions:</h3>
                             <table border="0" cellpadding="0" cellspacing="0">
                                 <tr>
-                                    <td style="background-color: #000000; border-radius: 4px;">
-                                        <a href="mailto:${email}" style="display: inline-block; padding: 12px 25px; font-family: Arial, sans-serif; font-size: 16px; color: #ffffff; text-decoration: none;">Reply to Inquiry</a>
+                                    <td style="padding-right: 10px;">
+                                        <a href="mailto:${email}" style="display: inline-block; padding: 10px 20px; background-color: #000000; color: #ffffff; text-decoration: none; border-radius: 4px; font-size: 14px;">Reply to Inquiry</a>
+                                    </td>
+                                    <td>
+                                        <a href="https://thequollective.africa/.netlify/functions/block-ip?ip=${clientIP}" style="display: inline-block; padding: 10px 20px; background-color: #dc3545; color: #ffffff; text-decoration: none; border-radius: 4px; font-size: 14px;">Block This IP</a>
                                     </td>
                                 </tr>
                             </table>
+                            
+                            <p style="font-size: 14px; margin: 20px 0 0 0; color: #999999;">To view all submissions and IP logs, visit your <a href="https://app.netlify.com" style="color: #007bff;">Netlify dashboard</a>.</p>
                         </td>
                     </tr>
                     
@@ -396,11 +492,11 @@ exports.handler = async function (event, context) {
     const adminEmailData = {
       sender: {
         name: "Quollective Website",
-        email: "the.emuron@thequollective.africa", // Business email as sender
+        email: "the.emuron@thequollective.africa",
       },
       to: [
         {
-          email: "the.emuron@thequollective.africa", // Your email (admin)
+          email: "the.emuron@thequollective.africa",
           name: "The Quollective",
         },
         {
@@ -409,9 +505,11 @@ exports.handler = async function (event, context) {
         },
       ],
       replyTo: {
-        email: email, // Use the submitter's email as reply-to
+        email: email,
       },
-      subject: `New Contact Form Submission: ${service || "Website Inquiry"}`,
+      subject: `New Contact Form Submission: ${
+        service || "Website Inquiry"
+      } [IP: ${clientIP}]`,
       htmlContent: adminEmailTemplate,
     };
 
@@ -419,16 +517,16 @@ exports.handler = async function (event, context) {
     const userConfirmationEmailData = {
       sender: {
         name: "THE QUOLLECTIVE",
-        email: "the.emuron@thequollective.africa", // Business email
+        email: "the.emuron@thequollective.africa",
       },
       to: [
         {
-          email: email, // Send to the person who submitted the form
+          email: email,
           name: name || "Website Visitor",
         },
       ],
       replyTo: {
-        email: "the.kigunda@thequollective.africa", // Business reply-to
+        email: "the.kigunda@thequollective.africa",
       },
       subject: `YOUR VISION IS NOW IN OUR HANDS | THE QUOLLECTIVE`,
       htmlContent: emailClientFriendlyTemplate,
@@ -493,3 +591,91 @@ exports.handler = async function (event, context) {
     };
   }
 };
+
+// NEW: Helper function to verify reCAPTCHA
+async function verifyRecaptcha(token, clientIP) {
+  try {
+    const response = await axios.post(
+      "https://www.google.com/recaptcha/api/siteverify",
+      null,
+      {
+        params: {
+          secret: process.env.RECAPTCHA_SECRET_KEY,
+          response: token,
+          remoteip: clientIP,
+        },
+      }
+    );
+
+    console.log("reCAPTCHA verification response:", response.data);
+    return response.data.success === true;
+  } catch (error) {
+    console.error("Error verifying reCAPTCHA:", error);
+    return false;
+  }
+}
+
+// NEW: Helper function to get IP information
+async function getIPInfo(ip) {
+  try {
+    // Using ip-api.com (free, no API key required, 45 req/min limit)
+    const response = await axios.get(`http://ip-api.com/json/${ip}`);
+    const data = response.data;
+
+    return {
+      country: data.country || null,
+      city: data.city || null,
+      isp: data.isp || null,
+      isProxy: data.proxy || false,
+      isVPN: data.hosting || false, // hosting flag often indicates VPN/datacenter
+    };
+  } catch (error) {
+    console.error("Error fetching IP info:", error);
+    return {};
+  }
+}
+
+// NEW: Helper function to log IP submissions
+async function logIPSubmission(ip, formData, status) {
+  try {
+    const timestamp = new Date().toISOString();
+    const logEntry = {
+      timestamp,
+      ip,
+      status, // SUCCESS, BLOCKED, RECAPTCHA_FAILED
+      email: formData.email || "N/A",
+      name: formData.name || "N/A",
+      service: formData.service || "N/A",
+      message: formData.message ? formData.message.substring(0, 100) : "N/A", // First 100 chars
+    };
+
+    // Use Netlify Blobs to store logs
+    const { getStore } = await import("@netlify/blobs");
+    const store = getStore("ip-logs");
+
+    // Create a unique key for this submission
+    const logKey = `${timestamp}-${ip}`;
+
+    // Store the log entry
+    await store.set(logKey, JSON.stringify(logEntry));
+
+    console.log("IP submission logged:", logKey);
+  } catch (error) {
+    console.error("Error logging IP submission:", error);
+    // Don't fail the request if logging fails
+  }
+}
+
+// NEW: Helper function to check if IP is blocked
+async function checkIPBlocklist(ip) {
+  try {
+    const { getStore } = await import("@netlify/blobs");
+    const store = getStore("ip-blocklist");
+
+    const isBlocked = await store.get(ip);
+    return isBlocked === "true";
+  } catch (error) {
+    console.error("Error checking IP blocklist:", error);
+    return false; // If there's an error, don't block
+  }
+}
