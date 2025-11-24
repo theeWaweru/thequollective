@@ -253,8 +253,8 @@ exports.handler = async function (event, context) {
 
           <div class="nav">
             <a href="/admin?password=${password}">Dashboard</a>
-            <a href="https://app.netlify.com/sites/zippy-lolly-b8ffb5/functions" target="_blank">Function Logs</a>
-            <a href="https://app.netlify.com/sites/zippy-lolly-b8ffb5/settings/env" target="_blank">Environment Vars</a>
+            <a href="https://app.netlify.com/sites/quollective/functions" target="_blank">Function Logs</a>
+            <a href="https://app.netlify.com/sites/quollective/settings/env" target="_blank">Environment Vars</a>
           </div>
 
           <div class="section">

@@ -346,12 +346,12 @@ exports.handler = async function (event, context) {
                                         <a href="mailto:${email}" style="display: inline-block; padding: 12px 20px; background-color: #000; color: #fff; text-decoration: none; border-radius: 4px; font-size: 14px;">📧 Reply</a>
                                     </td>
                                     <td style="padding-right: 10px; padding-bottom: 10px;">
-                                        <a href="https://zippy-lolly-b8ffb5.netlify.app/admin/block?ip=${clientIP}&email=${encodeURIComponent(
+                                        <a href="https://quollective.netlify.app/admin/block?ip=${clientIP}&email=${encodeURIComponent(
       email
     )}" style="display: inline-block; padding: 12px 20px; background-color: #dc3545; color: #fff; text-decoration: none; border-radius: 4px; font-size: 14px;">🚫 Block IP</a>
                                     </td>
                                     <td style="padding-bottom: 10px;">
-                                        <a href="https://zippy-lolly-b8ffb5.netlify.app/admin/block?email=${encodeURIComponent(
+                                        <a href="https://quollective.netlify.app/admin/block?email=${encodeURIComponent(
                                           email
                                         )}" style="display: inline-block; padding: 12px 20px; background-color: #ffc107; color: #000; text-decoration: none; border-radius: 4px; font-size: 14px;">⛔ Block Email</a>
                                     </td>

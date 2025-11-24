@@ -117,7 +117,7 @@ exports.handler = async function (event, context) {
               }
               Then redeploy your site for changes to take effect.
             </div>
-            <a href="https://app.netlify.com/sites/zippy-lolly-b8ffb5/settings/env" target="_blank">Open Netlify Settings</a>
+            <a href="https://app.netlify.com/sites/quollective/settings/env" target="_blank">Open Netlify Settings</a>
             <a href="/admin">Back to Dashboard</a>
           </div>
         </body>
