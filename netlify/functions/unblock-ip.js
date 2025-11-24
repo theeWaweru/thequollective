@@ -74,51 +74,15 @@ exports.handler = async function (event, context) {
       };
     }
 
-    // Fetch current values
-    const envVarsUrl = `https://api.netlify.com/api/v1/sites/${siteId}/env`;
-
-    let blockedIPs = [];
-    let blockedEmails = [];
-
-    try {
-      const response = await axios.get(envVarsUrl, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (response.data.BLOCKED_IPS && response.data.BLOCKED_IPS.value) {
-        blockedIPs = response.data.BLOCKED_IPS.value
-          .split(",")
-          .map((i) => i.trim())
-          .filter((i) => i);
-      }
-
-      if (response.data.BLOCKED_EMAILS && response.data.BLOCKED_EMAILS.value) {
-        blockedEmails = response.data.BLOCKED_EMAILS.value
-          .split(",")
-          .map((e) => e.trim().toLowerCase())
-          .filter((e) => e);
-      }
-    } catch (error) {
-      console.error(
-        "Error fetching env vars:",
-        error.response?.data || error.message
-      );
-      return {
-        statusCode: 500,
-        headers: { "Content-Type": "text/html" },
-        body: `
-          <html>
-            <body>
-              <h1>API Error</h1>
-              <p>${error.message}</p>
-              <pre>${JSON.stringify(error.response?.data, null, 2)}</pre>
-            </body>
-          </html>
-        `,
-      };
-    }
+    // Read current values from environment
+    let blockedIPs = (process.env.BLOCKED_IPS || "")
+      .split(",")
+      .map((i) => i.trim())
+      .filter((i) => i);
+    let blockedEmails = (process.env.BLOCKED_EMAILS || "")
+      .split(",")
+      .map((e) => e.trim().toLowerCase())
+      .filter((e) => e);
 
     let message = "";
     let updated = false;
@@ -180,11 +144,19 @@ exports.handler = async function (event, context) {
     if (ip) {
       updatePromises.push(
         axios.patch(
-          `https://api.netlify.com/api/v1/sites/${siteId}/env/BLOCKED_IPS`,
-          {
-            context: "all",
-            value: blockedIPs.join(","),
-          },
+          `https://api.netlify.com/api/v1/accounts/-/env/BLOCKED_IPS?site_id=${siteId}`,
+          [
+            {
+              key: "BLOCKED_IPS",
+              scopes: ["builds", "functions", "runtime", "post-processing"],
+              values: [
+                {
+                  value: blockedIPs.join(","),
+                  context: "all",
+                },
+              ],
+            },
+          ],
           {
             headers: {
               Authorization: `Bearer ${accessToken}`,
@@ -198,11 +170,19 @@ exports.handler = async function (event, context) {
     if (email) {
       updatePromises.push(
         axios.patch(
-          `https://api.netlify.com/api/v1/sites/${siteId}/env/BLOCKED_EMAILS`,
-          {
-            context: "all",
-            value: blockedEmails.join(","),
-          },
+          `https://api.netlify.com/api/v1/accounts/-/env/BLOCKED_EMAILS?site_id=${siteId}`,
+          [
+            {
+              key: "BLOCKED_EMAILS",
+              scopes: ["builds", "functions", "runtime", "post-processing"],
+              values: [
+                {
+                  value: blockedEmails.join(","),
+                  context: "all",
+                },
+              ],
+            },
+          ],
           {
             headers: {
               Authorization: `Bearer ${accessToken}`,

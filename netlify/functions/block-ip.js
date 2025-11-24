@@ -69,74 +69,24 @@ exports.handler = async function (event, context) {
             <body>
               <h1>Configuration Error</h1>
               <p>Missing NETLIFY_SITE_ID or NETLIFY_ACCESS_TOKEN.</p>
-              <p>Site ID: ${siteId ? "Set" : "Missing"}</p>
-              <p>Access Token: ${accessToken ? "Set" : "Missing"}</p>
             </body>
           </html>
         `,
       };
     }
 
-    console.log("Site ID:", siteId);
-    console.log("Using access token:", accessToken.substring(0, 10) + "...");
+    // Read current values from environment (already in memory)
+    let blockedIPs = (process.env.BLOCKED_IPS || "")
+      .split(",")
+      .map((i) => i.trim())
+      .filter((i) => i);
+    let blockedEmails = (process.env.BLOCKED_EMAILS || "")
+      .split(",")
+      .map((e) => e.trim().toLowerCase())
+      .filter((e) => e);
 
-    // Fetch current environment variables using the correct endpoint
-    const envVarsUrl = `https://api.netlify.com/api/v1/sites/${siteId}/env`;
-
-    let blockedIPs = [];
-    let blockedEmails = [];
-
-    try {
-      console.log("Fetching env vars from:", envVarsUrl);
-      const response = await axios.get(envVarsUrl, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      console.log("Successfully fetched env vars");
-
-      // Parse existing values
-      if (response.data.BLOCKED_IPS && response.data.BLOCKED_IPS.value) {
-        blockedIPs = response.data.BLOCKED_IPS.value
-          .split(",")
-          .map((i) => i.trim())
-          .filter((i) => i);
-      }
-
-      if (response.data.BLOCKED_EMAILS && response.data.BLOCKED_EMAILS.value) {
-        blockedEmails = response.data.BLOCKED_EMAILS.value
-          .split(",")
-          .map((e) => e.trim().toLowerCase())
-          .filter((e) => e);
-      }
-    } catch (error) {
-      console.error(
-        "Error fetching env vars:",
-        error.response?.data || error.message
-      );
-      return {
-        statusCode: 500,
-        headers: { "Content-Type": "text/html" },
-        body: `
-          <html>
-            <body>
-              <h1>API Error</h1>
-              <p>Failed to fetch environment variables.</p>
-              <p>Error: ${error.message}</p>
-              <p>Status: ${error.response?.status}</p>
-              <pre>${JSON.stringify(error.response?.data, null, 2)}</pre>
-              <p><strong>Troubleshooting:</strong></p>
-              <ul>
-                <li>Check that NETLIFY_SITE_ID is the actual site UUID (not the site name)</li>
-                <li>Check that NETLIFY_ACCESS_TOKEN is valid and not expired</li>
-                <li>Make sure the access token has the right permissions</li>
-              </ul>
-            </body>
-          </html>
-        `,
-      };
-    }
+    console.log("Current blocked IPs:", blockedIPs);
+    console.log("Current blocked emails:", blockedEmails);
 
     let message = "";
     let updated = false;
@@ -186,18 +136,28 @@ exports.handler = async function (event, context) {
       };
     }
 
-    // Update environment variables using the correct endpoint
+    console.log("New blocked IPs:", blockedIPs.join(","));
+    console.log("New blocked emails:", blockedEmails.join(","));
+
+    // Update environment variables using Netlify API
     const updatePromises = [];
 
     if (ip) {
-      console.log("Updating BLOCKED_IPS to:", blockedIPs.join(","));
       updatePromises.push(
         axios.patch(
-          `https://api.netlify.com/api/v1/sites/${siteId}/env/BLOCKED_IPS`,
-          {
-            context: "all",
-            value: blockedIPs.join(","),
-          },
+          `https://api.netlify.com/api/v1/accounts/-/env/BLOCKED_IPS?site_id=${siteId}`,
+          [
+            {
+              key: "BLOCKED_IPS",
+              scopes: ["builds", "functions", "runtime", "post-processing"],
+              values: [
+                {
+                  value: blockedIPs.join(","),
+                  context: "all",
+                },
+              ],
+            },
+          ],
           {
             headers: {
               Authorization: `Bearer ${accessToken}`,
@@ -209,14 +169,21 @@ exports.handler = async function (event, context) {
     }
 
     if (email) {
-      console.log("Updating BLOCKED_EMAILS to:", blockedEmails.join(","));
       updatePromises.push(
         axios.patch(
-          `https://api.netlify.com/api/v1/sites/${siteId}/env/BLOCKED_EMAILS`,
-          {
-            context: "all",
-            value: blockedEmails.join(","),
-          },
+          `https://api.netlify.com/api/v1/accounts/-/env/BLOCKED_EMAILS?site_id=${siteId}`,
+          [
+            {
+              key: "BLOCKED_EMAILS",
+              scopes: ["builds", "functions", "runtime", "post-processing"],
+              values: [
+                {
+                  value: blockedEmails.join(","),
+                  context: "all",
+                },
+              ],
+            },
+          ],
           {
             headers: {
               Authorization: `Bearer ${accessToken}`,
@@ -227,12 +194,33 @@ exports.handler = async function (event, context) {
       );
     }
 
-    await Promise.all(updatePromises);
-    console.log("Successfully updated environment variables");
-
-    // Trigger a new deployment using Netlify API
     try {
-      console.log("Triggering site rebuild...");
+      await Promise.all(updatePromises);
+      console.log("✅ Successfully updated environment variables");
+    } catch (error) {
+      console.error(
+        "❌ Error updating environment variables:",
+        error.response?.data || error.message
+      );
+      return {
+        statusCode: 500,
+        headers: { "Content-Type": "text/html" },
+        body: `
+          <html>
+            <body>
+              <h1>API Error</h1>
+              <p>Failed to update environment variables.</p>
+              <p>Error: ${error.message}</p>
+              <pre>${JSON.stringify(error.response?.data, null, 2)}</pre>
+            </body>
+          </html>
+        `,
+      };
+    }
+
+    // Trigger rebuild
+    try {
+      console.log("🔄 Triggering site rebuild...");
       await axios.post(
         `https://api.netlify.com/api/v1/sites/${siteId}/builds`,
         {},
@@ -244,13 +232,10 @@ exports.handler = async function (event, context) {
         }
       );
       message += `<br>🔄 Site redeployment triggered (takes ~30 seconds)<br>`;
-      console.log("Build triggered successfully");
+      console.log("✅ Build triggered successfully");
     } catch (error) {
-      console.error(
-        "Error triggering build:",
-        error.response?.data || error.message
-      );
-      message += `<br>⚠️ Warning: Could not trigger automatic rebuild. You may need to manually redeploy.<br>`;
+      console.error("⚠️ Error triggering build:", error.message);
+      message += `<br>⚠️ Warning: Could not trigger automatic rebuild.<br>`;
     }
 
     return {
@@ -294,7 +279,7 @@ exports.handler = async function (event, context) {
       `,
     };
   } catch (error) {
-    console.error("Error blocking:", error.response?.data || error.message);
+    console.error("💥 Error blocking:", error.response?.data || error.message);
     return {
       statusCode: 500,
       headers: { "Content-Type": "text/html" },
