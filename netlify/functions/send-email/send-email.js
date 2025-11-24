@@ -171,7 +171,7 @@ exports.handler = async function (event, context) {
     // Get IP location info
     const ipInfo = await getIPInfo(clientIP);
 
-    // User confirmation email template (same as before)
+    // User confirmation email template
     const emailClientFriendlyTemplate = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -189,14 +189,30 @@ exports.handler = async function (event, context) {
                             <img src="https://cdn.prod.website-files.com/666173435a4bdfce5ef95f6f/67dc5fea1adb79c551882cdc_quo_logo_white.png" alt="THE QUOLLECTIVE" width="180" style="display: block;" />
                             <h1 style="font-family: Arial, sans-serif; font-size: 36px; font-weight: bold; margin: 20px 0 5px 0; letter-spacing: 2px;">MESSAGE RECEIVED</h1>
                             <p style="font-size: 14px; letter-spacing: 3px; text-transform: uppercase; color: #cccccc; margin: 5px 0 20px 0;">Your vision is now in our hands</p>
+                            <table width="80%" border="0" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td align="center" height="1" style="background-color: #333333;"></td>
+                                </tr>
+                            </table>
                         </td>
                     </tr>
+                    
                     <tr>
                         <td style="padding: 30px 20px;">
                             <h2 style="font-family: Arial, sans-serif; font-size: 24px; font-weight: bold; margin: 0 0 20px 0; letter-spacing: 1px;">THE BEGINNING OF SOMETHING EXTRAORDINARY</h2>
-                            <p style="font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">Thank you for reaching out to us. Your message has been received and is already sparking creative conversations among our team.</p>
+                            <p style="font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">Thank you for reaching out to us. Your message has been received and is already sparking creative conversations among our team. We believe that great work comes from genuine connections, and this is just the beginning of ours.</p>
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 20px 0;">
+                                <tr>
+                                    <td width="3" style="background-color: #ffffff;"></td>
+                                    <td style="padding: 15px; font-style: italic; color: #cccccc;">
+                                        "Creativity is intelligence having fun." — Albert Einstein
+                                    </td>
+                                </tr>
+                            </table>
+                            <p style="font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">We're excited to explore how we can bring your vision to life through culture-driven creativity. Our team will review your inquiry and reach out to you <span style="display: inline-block; padding: 2px 8px; background-color: #ffffff; color: #000000; font-weight: bold;">within 24 hours</span>.</p>
                         </td>
                     </tr>
+                    
                     <tr>
                         <td style="padding: 0 20px 20px 20px;">
                             <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #111111; border-radius: 4px;">
@@ -204,23 +220,63 @@ exports.handler = async function (event, context) {
                                     <td style="padding: 20px;">
                                         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 15px;">
                                             <tr>
-                                                <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999;">Name</td>
-                                                <td width="70%" style="font-size: 14px;">${
+                                                <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999; padding-bottom: 5px; vertical-align: top;">Name</td>
+                                                <td width="70%" style="font-size: 14px; padding-bottom: 10px;">${
                                                   name || "Not provided"
                                                 }</td>
                                             </tr>
                                         </table>
+                                        
                                         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 15px;">
                                             <tr>
-                                                <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999;">Email</td>
-                                                <td width="70%" style="font-size: 14px;">${email}</td>
+                                                <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999; padding-bottom: 5px; vertical-align: top;">Email</td>
+                                                <td width="70%" style="font-size: 14px; padding-bottom: 10px;">${email}</td>
                                             </tr>
                                         </table>
+                                        
                                         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 15px;">
                                             <tr>
-                                                <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999;">Service</td>
-                                                <td width="70%" style="font-size: 14px;">${
+                                                <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999; padding-bottom: 5px; vertical-align: top;">Phone</td>
+                                                <td width="70%" style="font-size: 14px; padding-bottom: 10px;">
+                                                    ${
+                                                      phone
+                                                        ? phone.startsWith("+")
+                                                          ? `<a href="tel:${phone}" style="color: #ffffff; text-decoration: underline;">${phone}</a>`
+                                                          : `<a href="tel:+254${phone}" style="color: #ffffff; text-decoration: underline;">+254 ${phone}</a>`
+                                                        : "Not provided"
+                                                    }
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 15px;">
+                                            <tr>
+                                                <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999; padding-bottom: 5px; vertical-align: top;">Organization</td>
+                                                <td width="70%" style="font-size: 14px; padding-bottom: 10px;">${
+                                                  organization || "Not provided"
+                                                }</td>
+                                            </tr>
+                                        </table>
+                                        
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 15px;">
+                                            <tr>
+                                                <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999; padding-bottom: 5px; vertical-align: top;">Service</td>
+                                                <td width="70%" style="font-size: 14px; padding-bottom: 10px;">${
                                                   service || "Not specified"
+                                                }</td>
+                                            </tr>
+                                        </table>
+                                        
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999; padding-bottom: 5px; vertical-align: top;">Your Message</td>
+                                                <td width="70%" style="font-size: 14px; padding-bottom: 10px;">${
+                                                  message
+                                                    ? message.replace(
+                                                        /\n/g,
+                                                        "<br>"
+                                                      )
+                                                    : "Not provided"
                                                 }</td>
                                             </tr>
                                         </table>
@@ -229,9 +285,79 @@ exports.handler = async function (event, context) {
                             </table>
                         </td>
                     </tr>
+                    
+                    <tr>
+                        <td align="center" style="padding: 20px;">
+                            <h2 style="font-family: Arial, sans-serif; font-size: 28px; font-weight: bold; margin: 0; line-height: 1.3; letter-spacing: 1px;">
+                                "CULTURE DRIVES COMMERCE.<br>
+                                WE DRIVE CULTURE."
+                            </h2>
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td align="center" style="padding: 20px 0;">
+                            <table width="80%" border="0" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td align="center" height="1" style="background-color: #333333;"></td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td style="padding: 20px; background-color: #111111;">
+                            <h3 align="center" style="font-family: Arial, sans-serif; font-size: 22px; font-weight: bold; margin: 0 0 20px 0;">WHAT HAPPENS NEXT</h3>
+                            
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr valign="top">
+                                    <td width="20" height="100%" style="padding-right: 15px;">
+                                        <div style="width: 10px; height: 10px; background-color: #ffffff; border-radius: 50%; margin-top: 5px;"></div>
+                                    </td>
+                                    <td>
+                                        <p style="font-weight: bold; margin: 0 0 5px 0; font-size: 16px;">Initial Contact</p>
+                                        <p style="margin: 0; color: #cccccc; font-size: 14px;">One of our team members will reach out to you within 24 hours to acknowledge your inquiry.</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td align="center" style="padding: 40px 20px 20px 20px;">
+                            <table border="0" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td align="center" style="background-color: #ffffff; border-radius: 3px;">
+                                        <a href="https://thequollective.africa/work" target="_blank" style="display: inline-block; padding: 15px 30px; font-family: Arial, sans-serif; font-size: 16px; font-weight: bold; color: #000000; text-decoration: none; letter-spacing: 1px;">EXPLORE OUR WORK</a>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <table border="0" cellpadding="0" cellspacing="0" style="margin: 30px 0 20px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="https://www.linkedin.com/company/the-quollective-africa/" target="_blank" style="text-decoration: none; display: inline-block; margin: 0 10px;"><img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" alt="LinkedIn" width="24" height="24" style="display: block;" /></a>
+                                        <a href="https://www.instagram.com/thequollectiveafrica" target="_blank" style="text-decoration: none; display: inline-block; margin: 0 10px;"><img src="https://cdn-icons-png.flaticon.com/512/174/174855.png" alt="Instagram" width="24" height="24" style="display: block;" /></a>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <table border="0" cellpadding="0" cellspacing="0" style="margin: 20px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="https://thequollective.africa" style="color: #ffffff; text-decoration: none; margin: 0 15px; font-size: 14px;">HOME</a>
+                                        <a href="https://thequollective.africa/work" style="color: #ffffff; text-decoration: none; margin: 0 15px; font-size: 14px;">WORK</a>
+                                        <a href="https://thequollective.africa/contact" style="color: #ffffff; text-decoration: none; margin: 0 15px; font-size: 14px;">CONTACT</a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
                     <tr>
                         <td align="center" style="padding: 20px; border-top: 1px solid #333333; font-size: 12px; color: #999999;">
-                            <p style="margin: 0;">&copy; ${currentYear} THE QUOLLECTIVE. ALL RIGHTS RESERVED.</p>
+                            <p style="margin: 0 0 10px 0;">&copy; ${currentYear} THE QUOLLECTIVE. ALL RIGHTS RESERVED.</p>
+                            <p style="margin: 0;">This message was sent in response to your inquiry. Your information is kept confidential according to our privacy policy.</p>
                         </td>
                     </tr>
                 </table>
@@ -261,7 +387,7 @@ exports.handler = async function (event, context) {
                     </tr>
                     <tr>
                         <td style="padding: 30px 20px;">
-                            <h1 style="font-size: 24px; font-weight: bold; margin: 0 0 20px 0; color: #333333;">✨ New Contact Form Submission</h1>
+                            <h1 style="font-size: 24px; font-weight: bold; margin: 0 0 20px 0; color: #333333;">New Contact Form Submission</h1>
                             
                             <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 20px 0; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 5px;">
                                 <tr>
