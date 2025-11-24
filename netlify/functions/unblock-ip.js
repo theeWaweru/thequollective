@@ -75,7 +75,7 @@ exports.handler = async function (event, context) {
     }
 
     // Fetch current values
-    const envVarsUrl = `https://api.netlify.com/api/v1/accounts/-/env/${siteId}`;
+    const envVarsUrl = `https://api.netlify.com/api/v1/sites/${siteId}/env`;
 
     let blockedIPs = [];
     let blockedEmails = [];
@@ -87,28 +87,15 @@ exports.handler = async function (event, context) {
         },
       });
 
-      const blockedIPsVar = response.data.find((v) => v.key === "BLOCKED_IPS");
-      const blockedEmailsVar = response.data.find(
-        (v) => v.key === "BLOCKED_EMAILS"
-      );
-
-      if (
-        blockedIPsVar &&
-        blockedIPsVar.values &&
-        blockedIPsVar.values.length > 0
-      ) {
-        blockedIPs = blockedIPsVar.values[0].value
+      if (response.data.BLOCKED_IPS && response.data.BLOCKED_IPS.value) {
+        blockedIPs = response.data.BLOCKED_IPS.value
           .split(",")
           .map((i) => i.trim())
           .filter((i) => i);
       }
 
-      if (
-        blockedEmailsVar &&
-        blockedEmailsVar.values &&
-        blockedEmailsVar.values.length > 0
-      ) {
-        blockedEmails = blockedEmailsVar.values[0].value
+      if (response.data.BLOCKED_EMAILS && response.data.BLOCKED_EMAILS.value) {
+        blockedEmails = response.data.BLOCKED_EMAILS.value
           .split(",")
           .map((e) => e.trim().toLowerCase())
           .filter((e) => e);
@@ -118,6 +105,19 @@ exports.handler = async function (event, context) {
         "Error fetching env vars:",
         error.response?.data || error.message
       );
+      return {
+        statusCode: 500,
+        headers: { "Content-Type": "text/html" },
+        body: `
+          <html>
+            <body>
+              <h1>API Error</h1>
+              <p>${error.message}</p>
+              <pre>${JSON.stringify(error.response?.data, null, 2)}</pre>
+            </body>
+          </html>
+        `,
+      };
     }
 
     let message = "";
@@ -180,16 +180,10 @@ exports.handler = async function (event, context) {
     if (ip) {
       updatePromises.push(
         axios.patch(
-          `https://api.netlify.com/api/v1/accounts/-/env/BLOCKED_IPS?site_id=${siteId}`,
+          `https://api.netlify.com/api/v1/sites/${siteId}/env/BLOCKED_IPS`,
           {
-            key: "BLOCKED_IPS",
-            scopes: ["builds", "functions", "runtime", "post_processing"],
-            values: [
-              {
-                value: blockedIPs.join(","),
-                context: "all",
-              },
-            ],
+            context: "all",
+            value: blockedIPs.join(","),
           },
           {
             headers: {
@@ -204,16 +198,10 @@ exports.handler = async function (event, context) {
     if (email) {
       updatePromises.push(
         axios.patch(
-          `https://api.netlify.com/api/v1/accounts/-/env/BLOCKED_EMAILS?site_id=${siteId}`,
+          `https://api.netlify.com/api/v1/sites/${siteId}/env/BLOCKED_EMAILS`,
           {
-            key: "BLOCKED_EMAILS",
-            scopes: ["builds", "functions", "runtime", "post_processing"],
-            values: [
-              {
-                value: blockedEmails.join(","),
-                context: "all",
-              },
-            ],
+            context: "all",
+            value: blockedEmails.join(","),
           },
           {
             headers: {
@@ -227,16 +215,22 @@ exports.handler = async function (event, context) {
 
     await Promise.all(updatePromises);
 
-    // Trigger rebuild if build hook configured
-    if (process.env.BUILD_HOOK_ID) {
-      try {
-        await axios.post(
-          `https://api.netlify.com/build_hooks/${process.env.BUILD_HOOK_ID}`
-        );
-        message += `<br>🔄 Site redeployment triggered<br>`;
-      } catch (error) {
-        console.error("Error triggering build:", error.message);
-      }
+    // Trigger rebuild
+    try {
+      await axios.post(
+        `https://api.netlify.com/api/v1/sites/${siteId}/builds`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      message += `<br>🔄 Site redeployment triggered<br>`;
+    } catch (error) {
+      console.error("Error triggering build:", error.message);
+      message += `<br>⚠️ Warning: Could not trigger automatic rebuild.<br>`;
     }
 
     return {
