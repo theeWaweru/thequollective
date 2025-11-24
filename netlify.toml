@@ -5,3 +5,24 @@
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
+
+# NEW: Simplified URLs
+[[redirects]]
+  from = "/admin/logs"
+  to = "/.netlify/functions/view-logs"
+  status = 200
+
+[[redirects]]
+  from = "/admin/block"
+  to = "/.netlify/functions/block-ip"
+  status = 200
+
+[[redirects]]
+  from = "/admin/unblock"
+  to = "/.netlify/functions/unblock-ip"
+  status = 200
+
+[[redirects]]
+  from = "/admin"
+  to = "/.netlify/functions/admin-dashboard"
+  status = 200

@@ -2,7 +2,6 @@
 const axios = require("axios");
 
 exports.handler = async function (event, context) {
-  // Get current year for copyright
   const currentYear = new Date().getFullYear();
 
   // Extract IP address from Netlify headers
@@ -14,7 +13,7 @@ exports.handler = async function (event, context) {
 
   console.log("Request from IP:", clientIP);
 
-  // Set CORS headers dynamically based on the origin
+  // Set CORS headers
   const origin = event.headers.origin || "";
   const allowedOrigins = [
     "https://quollective.webflow.io",
@@ -49,19 +48,14 @@ exports.handler = async function (event, context) {
   }
 
   try {
-    // Parse the incoming JSON
     const data = JSON.parse(event.body);
     console.log("Received form submission:", data);
 
-    // NEW: Check IP blocklist
-    const isBlocked = await checkIPBlocklist(clientIP);
-    if (isBlocked) {
-      console.log(`Blocked IP attempted submission: ${clientIP}`);
+    // NEW: HONEYPOT CHECK - If the hidden "website" field is filled, it's a bot
+    if (data.website && data.website.trim() !== "") {
+      console.log("🍯 HONEYPOT TRIGGERED - Bot detected, IP:", clientIP);
 
-      // Log the blocked attempt
-      await logIPSubmission(clientIP, data, "BLOCKED");
-
-      // Return fake success to not tip off spammers
+      // Silently reject (bot thinks it succeeded)
       return {
         statusCode: 200,
         headers,
@@ -72,7 +66,53 @@ exports.handler = async function (event, context) {
       };
     }
 
-    // NEW: Verify reCAPTCHA
+    // Check IP blocklist from environment variable
+    const blockedIPs = (process.env.BLOCKED_IPS || "")
+      .split(",")
+      .map((ip) => ip.trim())
+      .filter((ip) => ip);
+    if (blockedIPs.includes(clientIP)) {
+      console.log(`🚫 BLOCKED IP attempted submission: ${clientIP}`);
+
+      // Add delay to waste spammer's time
+      await new Promise((resolve) => setTimeout(resolve, 5000)); // 5 second delay
+
+      // Return fake success
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          success: true,
+          message: "Email sent successfully",
+        }),
+      };
+    }
+
+    // Check blocked emails from environment variable
+    const blockedEmails = (process.env.BLOCKED_EMAILS || "")
+      .split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter((email) => email);
+    const submitterEmail = (data.email || "").toLowerCase();
+
+    if (blockedEmails.includes(submitterEmail)) {
+      console.log(`🚫 BLOCKED EMAIL attempted submission: ${submitterEmail}`);
+
+      // Add delay to waste spammer's time
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+
+      // Return fake success
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          success: true,
+          message: "Email sent successfully",
+        }),
+      };
+    }
+
+    // Verify reCAPTCHA
     const recaptchaToken = data.recaptchaToken;
     if (!recaptchaToken) {
       console.log("Missing reCAPTCHA token");
@@ -88,11 +128,7 @@ exports.handler = async function (event, context) {
 
     const recaptchaVerified = await verifyRecaptcha(recaptchaToken, clientIP);
     if (!recaptchaVerified) {
-      console.log("reCAPTCHA verification failed for IP:", clientIP);
-
-      // Log failed verification
-      await logIPSubmission(clientIP, data, "RECAPTCHA_FAILED");
-
+      console.log("❌ reCAPTCHA verification failed for IP:", clientIP);
       return {
         statusCode: 400,
         headers,
@@ -119,7 +155,7 @@ exports.handler = async function (event, context) {
       service,
     });
 
-    // Validate the submitter's email
+    // Validate email
     if (!email || !email.includes("@")) {
       console.log("Invalid or missing email address:", email);
       return {
@@ -132,13 +168,10 @@ exports.handler = async function (event, context) {
       };
     }
 
-    // NEW: Log legitimate submission
-    await logIPSubmission(clientIP, data, "SUCCESS");
-
-    // Get IP location info (optional - makes admin email more useful)
+    // Get IP location info
     const ipInfo = await getIPInfo(clientIP);
 
-    // Create email-client friendly HTML email template with dynamic data
+    // User confirmation email template (same as before)
     const emailClientFriendlyTemplate = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -150,199 +183,55 @@ exports.handler = async function (event, context) {
     <table border="0" cellpadding="0" cellspacing="0" width="100%">
         <tr>
             <td>
-                <!-- Container Table -->
                 <table align="center" border="0" cellpadding="0" cellspacing="0" width="600" style="border-collapse: collapse; background-color: #000000; color: #ffffff;">
-                    <!-- Header -->
                     <tr>
                         <td align="center" style="padding: 40px 20px; border-bottom: 1px solid #333333;">
                             <img src="https://cdn.prod.website-files.com/666173435a4bdfce5ef95f6f/67dc5fea1adb79c551882cdc_quo_logo_white.png" alt="THE QUOLLECTIVE" width="180" style="display: block;" />
                             <h1 style="font-family: Arial, sans-serif; font-size: 36px; font-weight: bold; margin: 20px 0 5px 0; letter-spacing: 2px;">MESSAGE RECEIVED</h1>
                             <p style="font-size: 14px; letter-spacing: 3px; text-transform: uppercase; color: #cccccc; margin: 5px 0 20px 0;">Your vision is now in our hands</p>
-                            <table width="80%" border="0" cellpadding="0" cellspacing="0">
-                                <tr>
-                                    <td align="center" height="1" style="background-color: #333333;"></td>
-                                </tr>
-                            </table>
                         </td>
                     </tr>
-                    
-                    <!-- Main Content -->
                     <tr>
                         <td style="padding: 30px 20px;">
                             <h2 style="font-family: Arial, sans-serif; font-size: 24px; font-weight: bold; margin: 0 0 20px 0; letter-spacing: 1px;">THE BEGINNING OF SOMETHING EXTRAORDINARY</h2>
-                            <p style="font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">Thank you for reaching out to us. Your message has been received and is already sparking creative conversations among our team. We believe that great work comes from genuine connections, and this is just the beginning of ours.</p>
-                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 20px 0;">
-                                <tr>
-                                    <td width="3" style="background-color: #ffffff;"></td>
-                                    <td style="padding: 15px; font-style: italic; color: #cccccc;">
-                                        "Creativity is intelligence having fun." — Albert Einstein
-                                    </td>
-                                </tr>
-                            </table>
-                            <p style="font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">We're excited to explore how we can bring your vision to life through culture-driven creativity. Our team will review your inquiry and reach out to you <span style="display: inline-block; padding: 2px 8px; background-color: #ffffff; color: #000000; font-weight: bold;">within 24 hours</span>.</p>
+                            <p style="font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">Thank you for reaching out to us. Your message has been received and is already sparking creative conversations among our team.</p>
                         </td>
                     </tr>
-                    
-                    <!-- Details Grid -->
                     <tr>
                         <td style="padding: 0 20px 20px 20px;">
                             <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #111111; border-radius: 4px;">
                                 <tr>
                                     <td style="padding: 20px;">
-                                        <!-- Name -->
                                         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 15px;">
                                             <tr>
-                                                <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999; padding-bottom: 5px; vertical-align: top;">Name</td>
-                                                <td width="70%" style="font-size: 14px; padding-bottom: 10px;">${
+                                                <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999;">Name</td>
+                                                <td width="70%" style="font-size: 14px;">${
                                                   name || "Not provided"
                                                 }</td>
                                             </tr>
                                         </table>
-                                        
-                                        <!-- Email -->
                                         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 15px;">
                                             <tr>
-                                                <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999; padding-bottom: 5px; vertical-align: top;">Email</td>
-                                                <td width="70%" style="font-size: 14px; padding-bottom: 10px;">${email}</td>
+                                                <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999;">Email</td>
+                                                <td width="70%" style="font-size: 14px;">${email}</td>
                                             </tr>
                                         </table>
-                                        
-                                        <!-- Phone -->
                                         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 15px;">
                                             <tr>
-                                                <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999; padding-bottom: 5px; vertical-align: top;">Phone</td>
-                                                <td width="70%" style="font-size: 14px; padding-bottom: 10px;">
-                                                    ${
-                                                      phone
-                                                        ? phone.startsWith("+")
-                                                          ? `<a href="tel:${phone}" style="color: #ffffff; text-decoration: underline;">${phone}</a>`
-                                                          : `<a href="tel:+254${phone}" style="color: #ffffff; text-decoration: underline;">+254 ${phone}</a>`
-                                                        : "Not provided"
-                                                    }
-                                                </td>
-                                            </tr>
-                                        </table>
-                                        
-                                        <!-- Organization -->
-                                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 15px;">
-                                            <tr>
-                                                <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999; padding-bottom: 5px; vertical-align: top;">Organization</td>
-                                                <td width="70%" style="font-size: 14px; padding-bottom: 10px;">${
-                                                  organization || "Not provided"
-                                                }</td>
-                                            </tr>
-                                        </table>
-                                        
-                                        <!-- Service -->
-                                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 15px;">
-                                            <tr>
-                                                <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999; padding-bottom: 5px; vertical-align: top;">Service</td>
-                                                <td width="70%" style="font-size: 14px; padding-bottom: 10px;">${
+                                                <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999;">Service</td>
+                                                <td width="70%" style="font-size: 14px;">${
                                                   service || "Not specified"
                                                 }</td>
                                             </tr>
                                         </table>
-                                        
-                                        <!-- Message -->
-                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                                            <tr>
-                                                <td width="30%" style="font-size: 12px; text-transform: uppercase; font-weight: bold; color: #999999; padding-bottom: 5px; vertical-align: top;">Your Message</td>
-                                                <td width="70%" style="font-size: 14px; padding-bottom: 10px;">${
-                                                  message
-                                                    ? message.replace(
-                                                        /\n/g,
-                                                        "<br>"
-                                                      )
-                                                    : "Not provided"
-                                                }</td>
-                                            </tr>
-                                        </table>
                                     </td>
                                 </tr>
                             </table>
                         </td>
                     </tr>
-                    
-                    <!-- Quote -->
-                    <tr>
-                        <td align="center" style="padding: 20px;">
-                            <h2 style="font-family: Arial, sans-serif; font-size: 28px; font-weight: bold; margin: 0; line-height: 1.3; letter-spacing: 1px;">
-                                "CULTURE DRIVES COMMERCE.<br>
-                                WE DRIVE CULTURE."
-                            </h2>
-                        </td>
-                    </tr>
-                    
-                    <!-- Divider -->
-                    <tr>
-                        <td align="center" style="padding: 20px 0;">
-                            <table width="80%" border="0" cellpadding="0" cellspacing="0">
-                                <tr>
-                                    <td align="center" height="1" style="background-color: #333333;"></td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    
-                    <!-- Next Steps -->
-                    <tr>
-                        <td style="padding: 20px; background-color: #111111;">
-                            <h3 align="center" style="font-family: Arial, sans-serif; font-size: 22px; font-weight: bold; margin: 0 0 20px 0;">WHAT HAPPENS NEXT</h3>
-                            
-                            <!-- Initial Contact -->
-                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                                <tr valign="top">
-                                    <td width="20" height="100%" style="padding-right: 15px;">
-                                        <div style="width: 10px; height: 10px; background-color: #ffffff; border-radius: 50%; margin-top: 5px;"></div>
-                                    </td>
-                                    <td>
-                                        <p style="font-weight: bold; margin: 0 0 5px 0; font-size: 16px;">Initial Contact</p>
-                                        <p style="margin: 0; color: #cccccc; font-size: 14px;">One of our team members will reach out to you within 24 hours to acknowledge your inquiry.</p>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    
-                    <!-- CTA & Links -->
-                    <tr>
-                        <td align="center" style="padding: 40px 20px 20px 20px;">
-                            <table border="0" cellpadding="0" cellspacing="0">
-                                <tr>
-                                    <td align="center" style="background-color: #ffffff; border-radius: 3px;">
-                                        <a href="https://thequollective.africa/work" target="_blank" style="display: inline-block; padding: 15px 30px; font-family: Arial, sans-serif; font-size: 16px; font-weight: bold; color: #000000; text-decoration: none; letter-spacing: 1px;">EXPLORE OUR WORK</a>
-                                    </td>
-                                </tr>
-                            </table>
-                            
-                            <!-- Social Links -->
-                            <table border="0" cellpadding="0" cellspacing="0" style="margin: 30px 0 20px 0;">
-                                <tr>
-                                    <td align="center">
-                                        <a href="https://www.linkedin.com/company/the-quollective-africa/" target="_blank" style="text-decoration: none; display: inline-block; margin: 0 10px;"><img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" alt="LinkedIn" width="24" height="24" style="display: block;" /></a>
-                                        <a href="https://www.instagram.com/thequollectiveafrica" target="_blank" style="text-decoration: none; display: inline-block; margin: 0 10px;"><img src="https://cdn-icons-png.flaticon.com/512/174/174855.png" alt="Instagram" width="24" height="24" style="display: block;" /></a>
-                                    </td>
-                                </tr>
-                            </table>
-                            
-                            <!-- Website Links -->
-                            <table border="0" cellpadding="0" cellspacing="0" style="margin: 20px 0;">
-                                <tr>
-                                    <td align="center">
-                                        <a href="https://thequollective.africa" style="color: #ffffff; text-decoration: none; margin: 0 15px; font-size: 14px;">HOME</a>
-                                        <a href="https://thequollective.africa/work" style="color: #ffffff; text-decoration: none; margin: 0 15px; font-size: 14px;">WORK</a>
-                                        <a href="https://thequollective.africa/contact" style="color: #ffffff; text-decoration: none; margin: 0 15px; font-size: 14px;">CONTACT</a>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    
-                    <!-- Footer -->
                     <tr>
                         <td align="center" style="padding: 20px; border-top: 1px solid #333333; font-size: 12px; color: #999999;">
-                            <p style="margin: 0 0 10px 0;">&copy; ${currentYear} THE QUOLLECTIVE. ALL RIGHTS RESERVED.</p>
-                            <p style="margin: 0;">This message was sent in response to your inquiry. Your information is kept confidential according to our privacy policy.</p>
+                            <p style="margin: 0;">&copy; ${currentYear} THE QUOLLECTIVE. ALL RIGHTS RESERVED.</p>
                         </td>
                     </tr>
                 </table>
@@ -352,7 +241,7 @@ exports.handler = async function (event, context) {
 </body>
 </html>`;
 
-    // NEW: Create improved admin email template with IP information
+    // Admin email template with IP info and action buttons
     const adminEmailTemplate = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -364,26 +253,20 @@ exports.handler = async function (event, context) {
     <table border="0" cellpadding="0" cellspacing="0" width="100%">
         <tr>
             <td>
-                <!-- Container Table -->
                 <table align="center" border="0" cellpadding="0" cellspacing="0" width="600" style="border-collapse: collapse; background-color: #ffffff;">
-                    <!-- Header -->
                     <tr>
                         <td align="center" style="padding: 30px 20px; background-color: #000000;">
                             <img src="https://cdn.prod.website-files.com/666173435a4bdfce5ef95f6f/67dc5fea1adb79c551882cdc_quo_logo_white.png" alt="THE QUOLLECTIVE" width="150" style="display: block;" />
                         </td>
                     </tr>
-                    
-                    <!-- Main Content -->
                     <tr>
                         <td style="padding: 30px 20px;">
-                            <h1 style="font-family: Arial, sans-serif; font-size: 24px; font-weight: bold; margin: 0 0 20px 0; color: #333333;">New Contact Form Submission</h1>
-                            <p style="font-size: 16px; line-height: 1.5; margin: 0 0 20px 0; color: #666666;">You have received a new inquiry from your website contact form. Here are the details:</p>
+                            <h1 style="font-size: 24px; font-weight: bold; margin: 0 0 20px 0; color: #333333;">✨ New Contact Form Submission</h1>
                             
-                            <!-- NEW: IP Information Section -->
-                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 20px 0; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 5px; overflow: hidden;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 20px 0; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 5px;">
                                 <tr>
                                     <td style="padding: 15px;">
-                                        <h3 style="margin: 0 0 10px 0; color: #856404; font-size: 16px;">🔍 Submission Source Information</h3>
+                                        <h3 style="margin: 0 0 10px 0; color: #856404; font-size: 16px;">🔍 Source Information</h3>
                                         <p style="margin: 0; color: #856404; font-size: 14px;">
                                             <strong>IP Address:</strong> ${clientIP}<br>
                                             ${
@@ -392,65 +275,63 @@ exports.handler = async function (event, context) {
                                                     ipInfo.city
                                                       ? ipInfo.city + ", "
                                                       : ""
-                                                  }${ipInfo.country}`
+                                                  }${ipInfo.country}<br>`
                                                 : ""
                                             }
                                             ${
                                               ipInfo.isp
-                                                ? `<br><strong>ISP:</strong> ${ipInfo.isp}`
+                                                ? `<strong>ISP:</strong> ${ipInfo.isp}`
                                                 : ""
                                             }
                                         </p>
                                         ${
                                           ipInfo.isVPN || ipInfo.isProxy
-                                            ? `<p style="margin: 10px 0 0 0; color: #d32f2f; font-size: 13px; font-weight: bold;">⚠️ Warning: This submission may be from a VPN/Proxy</p>`
+                                            ? `<p style="margin: 10px 0 0 0; color: #d32f2f; font-size: 13px; font-weight: bold;">⚠️ Warning: Possible VPN/Proxy</p>`
                                             : ""
                                         }
                                     </td>
                                 </tr>
                             </table>
                             
-                            <!-- Submission Details -->
-                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 20px 0; border: 1px solid #eeeeee; border-radius: 5px; overflow: hidden;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 20px 0; border: 1px solid #eeeeee; border-radius: 5px;">
                                 <tr style="background-color: #f9f9f9;">
-                                    <td width="30%" style="padding: 12px 15px; font-weight: bold; color: #333333; border-bottom: 1px solid #eeeeee;">Name</td>
-                                    <td width="70%" style="padding: 12px 15px; color: #333333; border-bottom: 1px solid #eeeeee;">${
+                                    <td width="30%" style="padding: 12px 15px; font-weight: bold; color: #333; border-bottom: 1px solid #eee;">Name</td>
+                                    <td width="70%" style="padding: 12px 15px; color: #333; border-bottom: 1px solid #eee;">${
                                       name || "Not provided"
                                     }</td>
                                 </tr>
                                 <tr>
-                                    <td width="30%" style="padding: 12px 15px; font-weight: bold; color: #333333; border-bottom: 1px solid #eeeeee;">Email</td>
-                                    <td width="70%" style="padding: 12px 15px; color: #333333; border-bottom: 1px solid #eeeeee;"><a href="mailto:${email}" style="color: #007bff; text-decoration: none;">${email}</a></td>
+                                    <td style="padding: 12px 15px; font-weight: bold; color: #333; border-bottom: 1px solid #eee;">Email</td>
+                                    <td style="padding: 12px 15px; border-bottom: 1px solid #eee;"><a href="mailto:${email}" style="color: #007bff;">${email}</a></td>
                                 </tr>
                                 <tr style="background-color: #f9f9f9;">
-                                    <td width="30%" style="padding: 12px 15px; font-weight: bold; color: #333333; border-bottom: 1px solid #eeeeee;">Phone</td>
-                                    <td width="70%" style="padding: 12px 15px; color: #333333; border-bottom: 1px solid #eeeeee;">
+                                    <td style="padding: 12px 15px; font-weight: bold; color: #333; border-bottom: 1px solid #eee;">Phone</td>
+                                    <td style="padding: 12px 15px; border-bottom: 1px solid #eee;">
                                         ${
                                           phone
                                             ? phone.startsWith("+")
-                                              ? `<a href="tel:${phone}" style="color: #007bff; text-decoration: none;">${phone}</a>`
-                                              : `<a href="tel:+254${phone}" style="color: #007bff; text-decoration: none;">+254 ${phone}</a>`
+                                              ? `<a href="tel:${phone}" style="color: #007bff;">${phone}</a>`
+                                              : `<a href="tel:+254${phone}" style="color: #007bff;">+254 ${phone}</a>`
                                             : "Not provided"
                                         }
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td width="30%" style="padding: 12px 15px; font-weight: bold; color: #333333; border-bottom: 1px solid #eeeeee;">Organization</td>
-                                    <td width="70%" style="padding: 12px 15px; color: #333333; border-bottom: 1px solid #eeeeee;">${
+                                    <td style="padding: 12px 15px; font-weight: bold; color: #333; border-bottom: 1px solid #eee;">Organization</td>
+                                    <td style="padding: 12px 15px; border-bottom: 1px solid #eee;">${
                                       organization || "Not provided"
                                     }</td>
                                 </tr>
                                 <tr style="background-color: #f9f9f9;">
-                                    <td width="30%" style="padding: 12px 15px; font-weight: bold; color: #333333; border-bottom: 1px solid #eeeeee;">Service</td>
-                                    <td width="70%" style="padding: 12px 15px; color: #333333; border-bottom: 1px solid #eeeeee;">${
+                                    <td style="padding: 12px 15px; font-weight: bold; color: #333;">Service</td>
+                                    <td style="padding: 12px 15px;">${
                                       service || "Not specified"
                                     }</td>
                                 </tr>
                             </table>
                             
-                            <!-- Message -->
-                            <h2 style="font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; margin: 30px 0 15px 0; color: #333333;">Message:</h2>
-                            <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #000000; margin-bottom: 20px; color: #666666;">
+                            <h2 style="font-size: 18px; font-weight: bold; margin: 30px 0 15px 0; color: #333;">Message:</h2>
+                            <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #000; margin-bottom: 20px; color: #666;">
                                 ${
                                   message
                                     ? message.replace(/\n/g, "<br>")
@@ -458,27 +339,29 @@ exports.handler = async function (event, context) {
                                 }
                             </div>
                             
-                            <!-- NEW: Quick Actions -->
-                            <h3 style="font-family: Arial, sans-serif; font-size: 16px; font-weight: bold; margin: 30px 0 15px 0; color: #333333;">Quick Actions:</h3>
+                            <h3 style="font-size: 16px; font-weight: bold; margin: 30px 0 15px 0; color: #333;">⚡ Quick Actions:</h3>
                             <table border="0" cellpadding="0" cellspacing="0">
                                 <tr>
-                                    <td style="padding-right: 10px;">
-                                        <a href="mailto:${email}" style="display: inline-block; padding: 10px 20px; background-color: #000000; color: #ffffff; text-decoration: none; border-radius: 4px; font-size: 14px;">Reply to Inquiry</a>
+                                    <td style="padding-right: 10px; padding-bottom: 10px;">
+                                        <a href="mailto:${email}" style="display: inline-block; padding: 12px 20px; background-color: #000; color: #fff; text-decoration: none; border-radius: 4px; font-size: 14px;">📧 Reply</a>
                                     </td>
-                                    <td>
-                                        <a href="https://thequollective.africa/.netlify/functions/block-ip?ip=${clientIP}" style="display: inline-block; padding: 10px 20px; background-color: #dc3545; color: #ffffff; text-decoration: none; border-radius: 4px; font-size: 14px;">Block This IP</a>
+                                    <td style="padding-right: 10px; padding-bottom: 10px;">
+                                        <a href="https://zippy-lolly-b8ffb5.netlify.app/admin/block?ip=${clientIP}&email=${encodeURIComponent(
+      email
+    )}" style="display: inline-block; padding: 12px 20px; background-color: #dc3545; color: #fff; text-decoration: none; border-radius: 4px; font-size: 14px;">🚫 Block IP</a>
+                                    </td>
+                                    <td style="padding-bottom: 10px;">
+                                        <a href="https://zippy-lolly-b8ffb5.netlify.app/admin/block?email=${encodeURIComponent(
+                                          email
+                                        )}" style="display: inline-block; padding: 12px 20px; background-color: #ffc107; color: #000; text-decoration: none; border-radius: 4px; font-size: 14px;">⛔ Block Email</a>
                                     </td>
                                 </tr>
                             </table>
-                            
-                            <p style="font-size: 14px; margin: 20px 0 0 0; color: #999999;">To view all submissions and IP logs, visit your <a href="https://app.netlify.com" style="color: #007bff;">Netlify dashboard</a>.</p>
                         </td>
                     </tr>
-                    
-                    <!-- Footer -->
                     <tr>
-                        <td align="center" style="padding: 20px; background-color: #f5f5f5; font-size: 14px; color: #999999; border-top: 1px solid #eeeeee;">
-                            <p style="margin: 0;">&copy; ${currentYear} THE QUOLLECTIVE. ALL RIGHTS RESERVED.</p>
+                        <td align="center" style="padding: 20px; background-color: #f5f5f5; font-size: 14px; color: #999; border-top: 1px solid #eee;">
+                            <p style="margin: 0;">&copy; ${currentYear} THE QUOLLECTIVE</p>
                         </td>
                     </tr>
                 </table>
@@ -488,7 +371,6 @@ exports.handler = async function (event, context) {
 </body>
 </html>`;
 
-    // Create email data for admin notification
     const adminEmailData = {
       sender: {
         name: "Quollective Website",
@@ -507,13 +389,10 @@ exports.handler = async function (event, context) {
       replyTo: {
         email: email,
       },
-      subject: `New Contact Form Submission: ${
-        service || "Website Inquiry"
-      } [IP: ${clientIP}]`,
+      subject: `New Inquiry: ${service || "General"} | ${name} [${clientIP}]`,
       htmlContent: adminEmailTemplate,
     };
 
-    // Create confirmation email for the user
     const userConfirmationEmailData = {
       sender: {
         name: "THE QUOLLECTIVE",
@@ -532,10 +411,8 @@ exports.handler = async function (event, context) {
       htmlContent: emailClientFriendlyTemplate,
     };
 
-    // Brevo API endpoint for sending emails
     const apiUrl = "https://api.brevo.com/v3/smtp/email";
 
-    // Send email to admin
     console.log("Sending admin notification email...");
     const adminEmailResponse = await axios.post(apiUrl, adminEmailData, {
       headers: {
@@ -544,9 +421,8 @@ exports.handler = async function (event, context) {
         "content-type": "application/json",
       },
     });
-    console.log("Admin email sent successfully:", adminEmailResponse.data);
+    console.log("✅ Admin email sent successfully");
 
-    // Send confirmation email to user
     console.log("Sending confirmation email to user:", email);
     const userEmailResponse = await axios.post(
       apiUrl,
@@ -559,12 +435,8 @@ exports.handler = async function (event, context) {
         },
       }
     );
-    console.log(
-      "User confirmation email sent successfully:",
-      userEmailResponse.data
-    );
+    console.log("✅ User confirmation email sent successfully");
 
-    // Return success response
     return {
       statusCode: 200,
       headers,
@@ -577,8 +449,6 @@ exports.handler = async function (event, context) {
     };
   } catch (error) {
     console.error("Error sending email:", error);
-
-    // Return error response with more details
     return {
       statusCode: 500,
       headers,
@@ -586,13 +456,12 @@ exports.handler = async function (event, context) {
         success: false,
         message: "Failed to send email",
         error: error.message,
-        stack: error.stack,
       }),
     };
   }
 };
 
-// NEW: Helper function to verify reCAPTCHA
+// Helper function to verify reCAPTCHA
 async function verifyRecaptcha(token, clientIP) {
   try {
     const response = await axios.post(
@@ -606,8 +475,6 @@ async function verifyRecaptcha(token, clientIP) {
         },
       }
     );
-
-    console.log("reCAPTCHA verification response:", response.data);
     return response.data.success === true;
   } catch (error) {
     console.error("Error verifying reCAPTCHA:", error);
@@ -615,10 +482,9 @@ async function verifyRecaptcha(token, clientIP) {
   }
 }
 
-// NEW: Helper function to get IP information
+// Helper function to get IP information
 async function getIPInfo(ip) {
   try {
-    // Using ip-api.com (free, no API key required, 45 req/min limit)
     const response = await axios.get(`http://ip-api.com/json/${ip}`);
     const data = response.data;
 
@@ -627,55 +493,10 @@ async function getIPInfo(ip) {
       city: data.city || null,
       isp: data.isp || null,
       isProxy: data.proxy || false,
-      isVPN: data.hosting || false, // hosting flag often indicates VPN/datacenter
+      isVPN: data.hosting || false,
     };
   } catch (error) {
     console.error("Error fetching IP info:", error);
     return {};
-  }
-}
-
-// NEW: Helper function to log IP submissions
-async function logIPSubmission(ip, formData, status) {
-  try {
-    const timestamp = new Date().toISOString();
-    const logEntry = {
-      timestamp,
-      ip,
-      status, // SUCCESS, BLOCKED, RECAPTCHA_FAILED
-      email: formData.email || "N/A",
-      name: formData.name || "N/A",
-      service: formData.service || "N/A",
-      message: formData.message ? formData.message.substring(0, 100) : "N/A", // First 100 chars
-    };
-
-    // Use Netlify Blobs to store logs
-    const { getStore } = await import("@netlify/blobs");
-    const store = getStore("ip-logs");
-
-    // Create a unique key for this submission
-    const logKey = `${timestamp}-${ip}`;
-
-    // Store the log entry
-    await store.set(logKey, JSON.stringify(logEntry));
-
-    console.log("IP submission logged:", logKey);
-  } catch (error) {
-    console.error("Error logging IP submission:", error);
-    // Don't fail the request if logging fails
-  }
-}
-
-// NEW: Helper function to check if IP is blocked
-async function checkIPBlocklist(ip) {
-  try {
-    const { getStore } = await import("@netlify/blobs");
-    const store = getStore("ip-blocklist");
-
-    const isBlocked = await store.get(ip);
-    return isBlocked === "true";
-  } catch (error) {
-    console.error("Error checking IP blocklist:", error);
-    return false; // If there's an error, don't block
   }
 }
