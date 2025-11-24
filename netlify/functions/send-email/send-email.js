@@ -465,26 +465,45 @@ exports.handler = async function (event, context) {
                                 }
                             </div>
                             
-                            <h3 style="font-size: 16px; font-weight: bold; margin: 30px 0 15px 0; color: #333;">Quick Actions:</h3>
-                            <table border="0" cellpadding="0" cellspacing="0">
-                                <tr>
-                                    <td style="padding-right: 10px; padding-bottom: 10px;">
-                                        <a href="mailto:${email}" style="display: inline-block; padding: 12px 20px; background-color: #000; color: #fff; text-decoration: none; border-radius: 4px; font-size: 14px;">📧 Reply</a>
-                                    </td>
-                                    <td style="padding-right: 10px; padding-bottom: 10px;">
-                                        <a href="https://quollective.netlify.app/admin/block?ip=${clientIP}&password=${encodeURIComponent(
-                                  process.env.ADMIN_PASSWORD
-                                )}" style="display: inline-block; padding: 12px 20px; background-color: #dc3545; color: #fff; text-decoration: none; border-radius: 4px; font-size: 14px;">🚫 Block IP</a>
-                                    </td>
-                                    <td style="padding-bottom: 10px;">
-                                        <a href="https://quollective.netlify.app/admin/block?email=${encodeURIComponent(
-                                          email
-                                        )}&password=${encodeURIComponent(
-                                  process.env.ADMIN_PASSWORD
-                                )}" style="display: inline-block; padding: 12px 20px; background-color: #ffc107; color: #000; text-decoration: none; border-radius: 4px; font-size: 14px;">⛔ Block Email</a>
-                                    </td>
-                                </tr>
-                            </table>
+                            <!-- Manual Blocking Instructions -->
+<table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 30px 0; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 8px;">
+    <tr>
+        <td style="padding: 20px;">
+            <h3 style="margin: 0 0 15px 0; color: #856404; font-size: 16px;">To Block This Forward it to davidngari47@gmail.com:</h3>
+            <p style="margin: 0 0 10px 0; color: #856404; font-size: 14px;">
+                <a href="https://app.netlify.com/sites/quollective/settings/env" target="_blank" style="color: #007bff;">Environment Variables</a>
+            </p>
+            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8f9fa; border-radius: 4px; margin-top: 10px;">
+                <tr>
+                    <td style="padding: 12px;">
+                        <p style="margin: 0; font-size: 13px; color: #333;"><strong>To block IP:</strong></p>
+                        <p style="margin: 5px 0 0 0; font-family: monospace; font-size: 12px; color: #666;">Add to BLOCKED_IPS: ${clientIP}</p>
+                    </td>
+                </tr>
+            </table>
+            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8f9fa; border-radius: 4px; margin-top: 10px;">
+                <tr>
+                    <td style="padding: 12px;">
+                        <p style="margin: 0; font-size: 13px; color: #333;"><strong>To block email:</strong></p>
+                        <p style="margin: 5px 0 0 0; font-family: monospace; font-size: 12px; color: #666;">Add to BLOCKED_EMAILS: ${email}</p>
+                    </td>
+                </tr>
+            </table>
+            <p style="margin: 15px 0 0 0; font-size: 12px; color: #856404;">
+                <em>Separate multiple entries with commas. Redeploy site after updating.</em>
+            </p>
+        </td>
+    </tr>
+</table>
+
+<!-- Reply Button -->
+<table border="0" cellpadding="0" cellspacing="0" style="margin-top: 20px;">
+    <tr>
+        <td style="background-color: #000; border-radius: 4px;">
+            <a href="mailto:${email}" style="display: inline-block; padding: 12px 25px; font-family: Arial, sans-serif; font-size: 16px; color: #ffffff; text-decoration: none;">📧 Reply to Inquiry</a>
+        </td>
+    </tr>
+</table>
                         </td>
                     </tr>
                     <tr>
